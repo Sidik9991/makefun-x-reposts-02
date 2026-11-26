@@ -44,6 +44,13 @@ function validate(raw: string): void {
       fail(`item ${i + 1} is not an X post address: ${String(item)}`);
     }
   });
+  // The house reads a post named twice only once, in any form of its
+  // address — catch that here instead of silently wasting a list slot.
+  const ids = posts.map((item) => (item as string).match(/\/status\/(\d+)/)![1]);
+  const dup = ids.find((id, i) => ids.indexOf(id) !== i);
+  if (dup !== undefined) {
+    fail(`status ${dup} is named more than once`);
+  }
 }
 
 const raw = readFileSync(sourcePath, "utf8");
@@ -51,4 +58,12 @@ validate(raw);
 
 mkdirSync(outputDir, { recursive: true });
 copyFileSync(sourcePath, outputPath);
-console.log(`copied POSTS.json (${raw.length} bytes) to ${outputPath}`);
+
+// Read the copy back: what the house grades must be exactly what was
+// validated, so a short or altered write fails here rather than there.
+const written = readFileSync(outputPath, "utf8");
+if (written !== raw) {
+  fail("the copy in /output does not match the repository POSTS.json");
+}
+const count = (JSON.parse(raw) as { posts: string[] }).posts.length;
+console.log(`copied POSTS.json (${raw.length} bytes, ${count} posts) to ${outputPath}`);
